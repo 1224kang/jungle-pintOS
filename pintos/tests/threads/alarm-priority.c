@@ -20,6 +20,7 @@ test_alarm_priority (void)
   
   /* This test does not work with the MLFQS. */
   ASSERT (!thread_mlfqs);
+  //ㅇㄹ
 
   wake_time = timer_ticks () + 5 * TIMER_FREQ; //5초를 틱으로 바꾼 값 
   sema_init (&wait_sema, 0);
