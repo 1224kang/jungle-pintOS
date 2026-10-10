@@ -28,8 +28,6 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/* 잠든(=BLOCKED) 스레드를 관리할 대기 리스트 */
-static struct list blocked_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -65,6 +63,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
+static bool cmp_priority(const struct list_elem *a_,const struct list_elem *b_, void *aux UNUSED);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -110,7 +109,7 @@ thread_init (void) {
 
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
-	list_init (&ready_list);
+	list_init (&ready_list); 
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -214,16 +213,19 @@ thread_create (const char *name, int priority,
 }
 
 /*
- *	blocked_list에 쓰레드 추가 + thread_block 호출해서 BLOCKED 상태로 전환
+ * 우선순위 비교
  */
-void
-thread_block_list(struct thread *t){
+static bool
+cmp_priority(const struct list_elem *a_,const struct list_elem *b_,
+			 void *aux UNUSED)
+{
+	const struct thread *a=list_entry(a_,struct thread,elem);
+	const struct thread *b=list_entry(b_,struct thread,elem);
 
-	list_push_back (&blocked_list, &t->elem);
-	// t->status = THREAD_BLOCKED;
-
-	thread_block();
+	return a->priority > b->priority;
 }
+
+
 
 /* 현재 스레드를 대기(sleep) 상태로 만듭니다. 이 스레드는 `thread_unblock()`에 의해 깨어나기 전까지는 다시 스케줄링되지 않습니다.
 	이 함수는 인터럽트가 비활성화된 상태에서 호출되어야 합니다. 
@@ -236,6 +238,7 @@ thread_block (void) {
 	thread_current ()->status = THREAD_BLOCKED;
 	schedule ();
 }
+
 
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
@@ -253,7 +256,9 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	// list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list,&t->elem,cmp_priority,NULL);
+	
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }

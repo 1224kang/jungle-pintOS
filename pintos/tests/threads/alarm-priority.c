@@ -20,12 +20,11 @@ test_alarm_priority (void)
   
   /* This test does not work with the MLFQS. */
   ASSERT (!thread_mlfqs);
-  //ㅇㄹ
 
-  wake_time = timer_ticks () + 5 * TIMER_FREQ; //5초를 틱으로 바꾼 값 
+  wake_time = timer_ticks () + 5 * TIMER_FREQ; //지금부터 5초 뒤
   sema_init (&wait_sema, 0);
   
-  for (i = 0; i < 10; i++) 
+  for (i = 0; i < 10; i++) //우선순위가 섞인 스레드 10개 생성
     {
       int priority = PRI_DEFAULT - (i + 5) % 10 - 1;
       char name[16];
@@ -33,24 +32,25 @@ test_alarm_priority (void)
       thread_create (name, priority, alarm_priority_thread, NULL);
     }
 
-  thread_set_priority (PRI_MIN);
+  thread_set_priority (PRI_MIN); //main이 우선순위를 0으로 낮춤
 
   for (i = 0; i < 10; i++)
     sema_down (&wait_sema);
 }
 
+/*
+ * 10개 스레드 각각이 실행하는 코드  
+ */
 static void
 alarm_priority_thread (void *aux UNUSED) 
 {
-  /* Busy-wait until the current time changes. */
+  /* 틱이 바뀔 때까지 바쁜 대기 */
   int64_t start_time = timer_ticks ();
-  while (timer_elapsed (start_time) == 0)
+  while (timer_elapsed (start_time) == 0) 
     continue;
 
-  /* Now we know we're at the very beginning of a timer tick, so
-     we can call timer_sleep() without worrying about races
-     between checking the time and a timer interrupt. */
-  timer_sleep (wake_time - timer_ticks ());
+  /* 타이머 틱이 막 시작된 시점이므로 다음 틱까지 여유 충분 -> 계산 도중 틱이 바뀔 걱정없음 */
+  timer_sleep (wake_time - timer_ticks ()); //wake_time까지 잠듦
 
   /* Print a message on wake-up. */
   msg ("Thread %s woke up.", thread_name ());
