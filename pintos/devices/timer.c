@@ -24,6 +24,10 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+/* 잠든(=BLOCKED) 스레드를 관리할 대기 리스트 */
+static struct list sleep_list;
+
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -42,6 +46,7 @@ timer_init (void) {
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
 
+	list_init(&sleep_list);
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
 
@@ -70,31 +75,43 @@ timer_calibrate (void) {
 	printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
-/* Returns the number of timer ticks since the OS booted. */
+/* 현재까지 발생한 타이머 틱의 개수를 읽어옴 */
 int64_t
 timer_ticks (void) {
-	enum intr_level old_level = intr_disable ();
-	int64_t t = ticks;
-	intr_set_level (old_level);
+	enum intr_level old_level = intr_disable (); //인터럽트를 끔 
+	int64_t t = ticks; //타이머 인터럽특가 발생할때마다 Ticks 증가 
+	intr_set_level (old_level); //인터럽트 이전 상태로 복구
 	barrier ();
-	return t;
+	return t;//현재 틱 값 반환
 }
 
-/* Returns the number of timer ticks elapsed since THEN, which
-   should be a value once returned by timer_ticks(). */
+/* THEN 시점부터 현재까지 경과한 타이머 Tick의 수 반환*/
 int64_t
 timer_elapsed (int64_t then) {
 	return timer_ticks () - then;
 }
 
-/* Suspends execution for approximately TICKS timer ticks. */
+/* TICKS 타이머 틱동안 실행을 일시 중단 */
 void
 timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+	int64_t start = timer_ticks (); //현재까지 틱의 개수 읽어옴 
+	int64_t wake_tick=start+ticks;
 
-	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	//구조체에 wake_tick 추가해서 관리
+	struct thread *cur = thread_current (); 
+	cur->wake_tick=wake_tick;
+
+	ASSERT (intr_get_level () == INTR_ON); 
+
+	//해당 스레드를 blocked_list에 추가 
+	thread_sleep(cur);
+
+	
+	// while (timer_elapsed (start) < ticks)
+	// 	thread_yield ();
+
+
+
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -126,6 +143,10 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
+
+	//sleep list 확인
+	thread_awake();
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -183,4 +204,38 @@ real_time_sleep (int64_t num, int32_t denom) {
 		ASSERT (denom % 1000 == 0);
 		busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000));
 	}
+}
+
+/*
+ *	blocked_list에 쓰레드 추가 + thread_block 호출해서 BLOCKED 상태로 전환
+ */
+void
+thread_sleep(struct thread *t){
+
+	enum intr_level old_level = intr_disable (); //외부 인터럽트 비활성화
+	list_push_back (&sleep_list, &t->elem);
+
+	thread_block(); //스레드 상태를 BLOCKED로 전환
+	intr_set_level (old_level); //인터럽트 복구
+}
+
+void
+thread_awake(){
+	int64_t now = timer_ticks (); 
+	// enum intr_level old_level = intr_disable (); //인터럽트 비활성화
+	struct list_elem *e=list_begin(&sleep_list);
+	struct thread *t;
+
+	while(e!=list_end(&sleep_list)){
+		t=list_entry(e,struct thread,elem);
+		if ((t->wake_tick)<=now){
+			e=list_remove(e);
+			thread_unblock(t);
+		}
+		else{
+			e=list_next(e);
+		}
+	}
+
+	// intr_set_level (old_level); //인터럽트 복구
 }
