@@ -207,7 +207,7 @@ real_time_sleep (int64_t num, int32_t denom) {
 }
 
 /*
- *	blocked_list에 쓰레드 추가 + thread_block 호출해서 BLOCKED 상태로 전환
+ *	현재 스레드를 sleep_list에 추가 -> BLOCKED 상태로 전환 
  */
 void
 thread_sleep(struct thread *t){
@@ -219,6 +219,9 @@ thread_sleep(struct thread *t){
 	intr_set_level (old_level); //인터럽트 복구
 }
 
+/*
+ *  현재 틱이 해당 쓰레드의 wake_tick 이상이면 쓰레드 깨움 
+ */
 void
 thread_awake(){
 	int64_t now = timer_ticks (); 

@@ -38,11 +38,11 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-/* Optimization barrier.
+/* 최적화 배리어
  *
  * The compiler will not reorder operations across an
  * optimization barrier.  See "Optimization Barriers" in the
  * reference guide for more information.*/
-#define barrier() asm volatile ("" : : : "memory")
+#define barrier() asm volatile ("" : : : "memory")  //컴파일러에게 여기서 메모리가 바뀌었을 수 있다고 말함 
 
 #endif /* threads/synch.h */
