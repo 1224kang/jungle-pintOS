@@ -6,8 +6,8 @@
 
 /* A counting semaphore. */
 struct semaphore {
-	unsigned value;             /* Current value. */
-	struct list waiters;        /* List of waiting threads. */
+	unsigned value;             /* 사용 가능한 자원의 수 */
+	struct list waiters;        /* 세마포어를 획득하지 못해 대기중인 스레드 목록 */
 };
 
 void sema_init (struct semaphore *, unsigned value);
@@ -38,11 +38,11 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-/* Optimization barrier.
+/* 최적화 배리어
  *
  * The compiler will not reorder operations across an
  * optimization barrier.  See "Optimization Barriers" in the
  * reference guide for more information.*/
-#define barrier() asm volatile ("" : : : "memory")
+#define barrier() asm volatile ("" : : : "memory")  //컴파일러에게 여기서 메모리가 바뀌었을 수 있다고 말함 
 
 #endif /* threads/synch.h */
