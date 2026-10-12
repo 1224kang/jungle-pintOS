@@ -48,7 +48,15 @@ sema_init (struct semaphore *sema, unsigned value) {
 	sema->value = value;
 	list_init (&sema->waiters);
 }
+static bool
+cmp_waiters(const struct list_elem *a_, const struct list_elem *b_,
+			 void *aux UNUSED)
+{
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
 
+	return a->priority > b->priority;
+}
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -66,9 +74,9 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters,  &thread_current ()->elem, cmp_waiters, NULL);
 		thread_block ();
-	}
+	}	
 	sema->value--;
 	intr_set_level (old_level);
 }
@@ -105,14 +113,28 @@ sema_try_down (struct semaphore *sema) {
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
+	struct thread *woken_thread;
+	woken_thread = NULL;
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
+	if (!list_empty (&sema->waiters)){
+		woken_thread = (list_entry (list_pop_front (&sema->waiters),struct thread, elem));
+		if(woken_thread != NULL){
+			thread_unblock(woken_thread);
+		}
+	}
+	
 	sema->value++;
+	if(woken_thread != NULL && woken_thread->priority > thread_current()->priority){
+		if(intr_context() == false){
+			thread_yield();
+		}
+		if(intr_context() == true){
+			intr_yield_on_return();
+		}
+	}
 	intr_set_level (old_level);
 }
 
@@ -321,3 +343,4 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
 }
+
