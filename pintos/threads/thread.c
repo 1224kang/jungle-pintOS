@@ -63,7 +63,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
-static bool cmp_priority(const struct list_elem *a_,const struct list_elem *b_, void *aux UNUSED);
+bool cmp_priority(const struct list_elem *a_,const struct list_elem *b_, void *aux UNUSED);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -202,6 +202,7 @@ thread_create (const char *name, int priority,
 
 	//ready list 재점검
 	thread_preempt_if_needed();
+	
 
 	return tid;
 }
@@ -209,7 +210,7 @@ thread_create (const char *name, int priority,
 /*
  * 우선순위 비교
  */
-static bool
+bool
 cmp_priority(const struct list_elem *a_,const struct list_elem *b_,
 			 void *aux UNUSED)
 {
@@ -331,7 +332,7 @@ thread_set_priority (int new_priority) {
 	thread_preempt_if_needed();
 }
 
-/* ready list 맨 앞 스레드의 우선순위가 현재 실행 중인 스레드보다 클 때 우선순위 재정리하는 함수 */
+/* ready list 맨 앞 스레드의 우선순위가 현재 실행 중인 스레드보다 클 때 스레드 교환*/
 void
 thread_preempt_if_needed(){
 	//ready_list 비었는지 확인
