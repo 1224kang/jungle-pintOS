@@ -127,6 +127,7 @@ thread_start (void) {
 	struct semaphore idle_started;
 	sema_init (&idle_started, 0);
 	thread_create ("idle", PRI_MIN, idle, &idle_started);
+	
 
 	/* Start preemptive thread scheduling. */
 	intr_enable ();
@@ -208,6 +209,10 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
+
+	if(priority > thread_current()->priority){
+		thread_yield();
+	}
 
 	return tid;
 }
@@ -322,7 +327,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list,&curr->elem,cmp_priority,NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
