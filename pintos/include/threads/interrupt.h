@@ -34,6 +34,10 @@ struct gp_registers {
 	uint64_t rax;
 } __attribute__((packed));
 
+/*
+ CPU 레지스터 상태를 통째로 저장해둔 스냅샷.
+ 인터럽트 처리 끝난 후 원래 하던 일로 되돌아가기 위해 
+*/
 struct intr_frame {
 	/* Pushed by intr_entry in intr-stubs.S.
 	   These are the interrupted task's saved registers. */

@@ -12,19 +12,16 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
-/* Page allocator.  Hands out memory in page-size (or
-   page-multiple) chunks.  See malloc.h for an allocator that
-   hands out smaller chunks.
+/* 페이지 할당자(Page allocator)입니다. 
+이 할당자는 메모리를 페이지 단위(또는 페이지 크기의 배수)로 나누어 제공합니다. 
+더 작은 단위의 메모리를 할당하는 방식은 `malloc.h`를 참조하십시오.
 
-   System memory is divided into two "pools" called the kernel
-   and user pools.  The user pool is for user (virtual) memory
-   pages, the kernel pool for everything else.  The idea here is
-   that the kernel needs to have memory for its own operations
-   even if user processes are swapping like mad.
+시스템 메모리는 커널 풀(kernel pool)과 사용자 풀(user pool)이라는 두 개의 '풀'로 나뉩니다. 
+사용자 풀은 사용자(가상) 메모리 페이지를 위한 공간이며, 커널 풀은 그 외의 모든 용도로 사용됩니다. 
+이러한 설계는 사용자 프로세스가 과도하게 스와핑(swapping)을 수행하는 상황에서도 커널이 자체 작업을 위한 메모리를 확보할 수 있도록 하기 위함입니다.
 
-   By default, half of system RAM is given to the kernel pool and
-   half to the user pool.  That should be huge overkill for the
-   kernel pool, but that's just fine for demonstration purposes. */
+기본적으로 시스템 RAM의 절반은 커널 풀에, 나머지 절반은 사용자 풀에 할당됩니다. 
+커널 풀 입장에서는 과도하게 많은 양일 수 있지만, 시연용으로는 적절한 설정입니다. */
 
 /* A memory pool. */
 struct pool {
@@ -253,16 +250,16 @@ palloc_init (void) {
 	return ext_mem.end;
 }
 
-/* Obtains and returns a group of PAGE_CNT contiguous free pages.
-   If PAL_USER is set, the pages are obtained from the user pool,
-   otherwise from the kernel pool.  If PAL_ZERO is set in FLAGS,
-   then the pages are filled with zeros.  If too few pages are
-   available, returns a null pointer, unless PAL_ASSERT is set in
-   FLAGS, in which case the kernel panics. */
+/* PAGE_CNT만큼 연속된 빈 페이지 그룹을 할당받아 반환합니다.
+PAL_USER가 설정된 경우 사용자 풀에서, 그렇지 않은 경우 커널 풀에서 페이지를 할당받습니다.
+FLAGS에 PAL_ZERO가 설정되어 있으면 해당 페이지들은 0으로 채워집니다.
+할당 가능한 페이지가 부족할 경우 널 포인터를 반환하지만,
+FLAGS에 PAL_ASSERT가 설정된 경우에는 커널 패닉이 발생합니다. */
 void *
 palloc_get_multiple (enum palloc_flags flags, size_t page_cnt) {
 	struct pool *pool = flags & PAL_USER ? &user_pool : &kernel_pool;
 
+	//풀에서 빈 페이지를 찾아서 "사용 중"으로 표시하는 코드
 	lock_acquire (&pool->lock);
 	size_t page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
 	lock_release (&pool->lock);
@@ -284,13 +281,11 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt) {
 	return pages;
 }
 
-/* Obtains a single free page and returns its kernel virtual
-   address.
-   If PAL_USER is set, the page is obtained from the user pool,
-   otherwise from the kernel pool.  If PAL_ZERO is set in FLAGS,
-   then the page is filled with zeros.  If no pages are
-   available, returns a null pointer, unless PAL_ASSERT is set in
-   FLAGS, in which case the kernel panics. */
+/* PAGE_CNT만큼 연속된 빈 페이지 그룹을 할당받아 반환합니다.
+PAL_USER가 설정된 경우 사용자 풀에서, 그렇지 않은 경우 커널 풀에서 페이지를 할당받습니다.
+FLAGS에 PAL_ZERO가 설정되어 있으면 해당 페이지들은 0으로 채워집니다.
+할당 가능한 페이지가 부족할 경우 널 포인터를 반환하지만,
+FLAGS에 PAL_ASSERT가 설정된 경우에는 커널 패닉이 발생합니다. */
 void *
 palloc_get_page (enum palloc_flags flags) {
 	return palloc_get_multiple (flags, 1);
