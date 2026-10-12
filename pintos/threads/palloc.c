@@ -258,10 +258,9 @@ FLAGS에 PAL_ASSERT가 설정된 경우에는 커널 패닉이 발생합니다. 
 void *
 palloc_get_multiple (enum palloc_flags flags, size_t page_cnt) {
 	struct pool *pool = flags & PAL_USER ? &user_pool : &kernel_pool;
-
-	//풀에서 빈 페이지를 찾아서 "사용 중"으로 표시하는 코드
+	
 	lock_acquire (&pool->lock);
-	size_t page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
+	size_t page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);//풀에서 빈 페이지를 찾아서 "사용 중"으로 표시하는 코드
 	lock_release (&pool->lock);
 	void *pages;
 
