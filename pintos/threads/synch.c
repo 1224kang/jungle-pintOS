@@ -31,6 +31,7 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include <debug.h>
 
 /* 세마포어 SEMA를 VALUE로 초기화합니다. 
 세마포어는 음수가 아닌 정수와 이를 조작하기 위한 두 가지 원자적(atomic) 연산으로 구성됩니다.
@@ -45,6 +46,7 @@ sema_init (struct semaphore *sema, unsigned value) {
 	sema->value = value;
 	list_init (&sema->waiters);
 }
+
 
 /* 
 세마포어에 대한 Down 또는 "P" 연산입니다. 
@@ -236,12 +238,36 @@ lock_held_by_current_thread (const struct lock *lock) {
 
 	return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */
 	struct semaphore semaphore;         /* This semaphore. */
 };
+
+
+
+/*
+ * 우선순위 비교
+ */
+bool
+cmp_priority_in_semaphore(const struct list_elem *a_,const struct list_elem *b_,
+			 void *aux UNUSED)
+{
+	ASSERT(!a_ == NULL && !b_ == NULL);
+
+	struct semaphore_elem *a=list_entry(a_,struct semaphore_elem,elem);
+	struct semaphore_elem *b=list_entry(b_,struct semaphore_elem,elem);
+
+	struct list_elem *la=list_front(&a->semaphore.waiters);
+	struct list_elem *lb=list_front(&b->semaphore.waiters);
+
+	struct thread *ta=list_entry(la,struct thread,elem);
+	struct thread *tb=list_entry(lb,struct thread,elem);
+
+	return ta->priority > tb->priority;
+}
+
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -284,8 +310,9 @@ cond_wait (struct condition *cond, struct lock *lock) {
 
 	sema_init (&waiter.semaphore, 0);
 	list_push_back (&cond->waiters, &waiter.elem);
-	lock_release (lock);
-	sema_down (&waiter.semaphore);
+	lock_release (lock); //쥐고 있던 락을 내려놓음->다른 스레드가 락을 잡고 공유 데이터 바꿀 수 있음 
+	sema_down (&waiter.semaphore); //누군가가 sema_up을 해줄 때까지 BLOCKED
+	// list_insert_ordered(&cond->waiters,&waiter.elem,cmp_priority_in_semaphore,NULL);
 	lock_acquire (lock);
 }
 
@@ -304,6 +331,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	if (!list_empty (&cond->waiters))
+		list_sort(&cond->waiters,cmp_priority_in_semaphore,NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
 }

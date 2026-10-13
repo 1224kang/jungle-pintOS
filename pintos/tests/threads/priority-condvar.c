@@ -46,8 +46,8 @@ static void
 priority_condvar_thread (void *aux UNUSED) 
 {
   msg ("Thread %s starting.", thread_name ());
-  lock_acquire (&lock);
-  cond_wait (&condition, &lock);
+  lock_acquire (&lock); //조건 확인 위해 공유 데이터를 읽어야 함 -> 락이 필요함
+  cond_wait (&condition, &lock); 
   msg ("Thread %s woke up.", thread_name ());
   lock_release (&lock);
 }
