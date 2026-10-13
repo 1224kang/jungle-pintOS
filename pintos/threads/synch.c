@@ -350,3 +350,17 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
 }
+
+void
+donate_priority(struct lock *lock){ // 단일기부는 완성
+	int now_curr;
+
+	now_curr = thread_current()->priority; // now_curr에 지금 스레드의 값 넣기
+
+	if(lock->holder != NULL){ //만약 락상태일시
+		if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
+			lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+		}
+	}
+	else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
+}
