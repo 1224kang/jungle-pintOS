@@ -282,13 +282,10 @@ bitmap_scan (const struct bitmap *b, size_t start, size_t cnt, bool value) {
 	return BITMAP_ERROR;
 }
 
-/* Finds the first group of CNT consecutive bits in B at or after
-   START that are all set to VALUE, flips them all to !VALUE,
-   and returns the index of the first bit in the group.
-   If there is no such group, returns BITMAP_ERROR.
-   If CNT is zero, returns 0.
-   Bits are set atomically, but testing bits is not atomic with
-   setting them. */
+/* START 위치부터 시작해서, 비트맵 B에서 값이 모두 VALUE인 연속된 CNT개의 비트 묶음 중 첫번째를 찾는다.
+	그 비트들을 모두 !VALUE로 뒤집고 묶음의 첫 번째 비트 인덱스 반환, 없으면 BITMAP_ERROR 반환
+	비트를 설정하는 건 원자적이지만, 비트를 검사하는 것과 설정하는 것을 합친 동작은 원자적이지 않다. 	
+*/
 size_t
 bitmap_scan_and_flip (struct bitmap *b, size_t start, size_t cnt, bool value) {
 	size_t idx = bitmap_scan (b, start, cnt, value);

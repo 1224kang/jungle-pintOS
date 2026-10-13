@@ -31,16 +31,14 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include <debug.h>
 
-/* Initializes semaphore SEMA to VALUE.  A semaphore is a
-   nonnegative integer along with two atomic operators for
-   manipulating it:
+/* 세마포어 SEMA를 VALUE로 초기화합니다. 
+세마포어는 음수가 아닌 정수와 이를 조작하기 위한 두 가지 원자적(atomic) 연산으로 구성됩니다.
 
-   - down or "P": wait for the value to become positive, then
-   decrement it.
-
-   - up or "V": increment the value (and wake up one waiting
-   thread, if any). */
+- down 또는 "P": 값이 양수가 될 때까지 기다린 후, 값을 1만큼 감소시킵니다.
+- up 또는 "V": 값을 1만큼 증가시킵니다(그리고 대기 중인 스레드가 있다면 그중 하나를 깨웁니다). 
+*/
 void
 sema_init (struct semaphore *sema, unsigned value) {
 	ASSERT (sema != NULL);
@@ -49,14 +47,15 @@ sema_init (struct semaphore *sema, unsigned value) {
 	list_init (&sema->waiters);
 }
 
-/* Down or "P" operation on a semaphore.  Waits for SEMA's value
-   to become positive and then atomically decrements it.
 
-   This function may sleep, so it must not be called within an
-   interrupt handler.  This function may be called with
-   interrupts disabled, but if it sleeps then the next scheduled
-   thread will probably turn interrupts back on. This is
-   sema_down function. */
+/* 
+세마포어에 대한 Down 또는 "P" 연산입니다. 
+SEMA의 값이 양수가 될 때까지 대기한 후, 해당 값을 원자적으로(atomically) 감소시킵니다.
+
+이 함수는 슬립(sleep) 상태가 될 수 있으므로 인터럽트 핸들러 내에서 호출해서는 안 됩니다. 
+인터럽트가 비활성화된 상태에서도 호출할 수 있지만, 
+만약 슬립 상태로 진입하게 되면 다음에 스케줄링된 스레드가 인터럽트를 다시 활성화할 가능성이 큽니다. 
+이것이 sema_down 함수입니다.*/
 void
 sema_down (struct semaphore *sema) {
 	enum intr_level old_level;
@@ -66,7 +65,8 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		// list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters,&thread_current ()->elem, cmp_priority,NULL); 
 		thread_block ();
 	}
 	sema->value--;
@@ -112,7 +112,10 @@ sema_up (struct semaphore *sema) {
 	if (!list_empty (&sema->waiters))
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
+
 	sema->value++;
+
+	thread_preempt_if_needed(); //unblock하고 우선순위가 높은 스레드에게 CPU 넘김
 	intr_set_level (old_level);
 }
 
@@ -235,12 +238,36 @@ lock_held_by_current_thread (const struct lock *lock) {
 
 	return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */
 	struct semaphore semaphore;         /* This semaphore. */
 };
+
+
+
+/*
+ * 우선순위 비교
+ */
+bool
+cmp_priority_in_semaphore(const struct list_elem *a_,const struct list_elem *b_,
+			 void *aux UNUSED)
+{
+	ASSERT(!a_ == NULL && !b_ == NULL);
+
+	struct semaphore_elem *a=list_entry(a_,struct semaphore_elem,elem);
+	struct semaphore_elem *b=list_entry(b_,struct semaphore_elem,elem);
+
+	struct list_elem *la=list_front(&a->semaphore.waiters);
+	struct list_elem *lb=list_front(&b->semaphore.waiters);
+
+	struct thread *ta=list_entry(la,struct thread,elem);
+	struct thread *tb=list_entry(lb,struct thread,elem);
+
+	return ta->priority > tb->priority;
+}
+
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -283,8 +310,9 @@ cond_wait (struct condition *cond, struct lock *lock) {
 
 	sema_init (&waiter.semaphore, 0);
 	list_push_back (&cond->waiters, &waiter.elem);
-	lock_release (lock);
-	sema_down (&waiter.semaphore);
+	lock_release (lock); //쥐고 있던 락을 내려놓음->다른 스레드가 락을 잡고 공유 데이터 바꿀 수 있음 
+	sema_down (&waiter.semaphore); //누군가가 sema_up을 해줄 때까지 BLOCKED
+	// list_insert_ordered(&cond->waiters,&waiter.elem,cmp_priority_in_semaphore,NULL);
 	lock_acquire (lock);
 }
 
@@ -303,6 +331,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	if (!list_empty (&cond->waiters))
+		list_sort(&cond->waiters,cmp_priority_in_semaphore,NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
 }
