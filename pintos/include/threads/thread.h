@@ -93,6 +93,7 @@ struct thread {
 	int priority;                       /* Priority. */
 	int base_priority; //donate 이전 우선순위
 	int64_t wake_tick; //깨어나는 시각
+	struct lock *wait_on_lock; //해당 스레드가 획득하기 위해 대기 중인 락
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
