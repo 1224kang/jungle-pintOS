@@ -66,8 +66,9 @@ sema_down (struct semaphore *sema) {
 	old_level = intr_disable ();
 	while (sema->value == 0) {
 		// list_push_back (&sema->waiters, &thread_current ()->elem);
-		list_insert_ordered(&sema->waiters,&thread_current ()->elem, cmp_priority,NULL); 
-		thread_block ();
+		list_insert_ordered(&sema->waiters,&thread_current ()->elem, cmp_priority,NULL);   
+		
+		thread_block (); //BLOCKED 상태
 	}
 	sema->value--;
 	intr_set_level (old_level);
@@ -349,6 +350,17 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 
 	while (!list_empty (&cond->waiters))
 		cond_signal (cond, lock);
+}
+
+/*
+	기부한 priority 복귀 함수 (단일)
+*/
+void
+remove_with_lock(struct lock *lock){
+	struct thread *cur=lock->holder;
+
+	//원래 우선순위로 다시 돌아오기
+	cur->priority=cur->base_priority;
 }
 
 void
