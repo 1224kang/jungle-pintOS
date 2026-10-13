@@ -447,20 +447,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->base_priority=priority;
 	t->magic = THREAD_MAGIC;
 }
-static void
-init_thread (struct thread *t, const char *name, int priority) {
-	ASSERT (t != NULL);
-	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
-	ASSERT (name != NULL);
 
-	memset (t, 0, sizeof *t);
-	t->status = THREAD_BLOCKED;
-	strlcpy (t->name, name, sizeof t->name);
-	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
-	t->priority = priority;
-	t->base_priority=priority;
-	t->magic = THREAD_MAGIC;
-}
 /* 스케줄링할 다음 스레드를 선택하여 반환합니다. 실행 큐(run queue=ready list)가 비어 있지 않다면 실행 큐에서 스레드를 반환해야 합니다. (현재 실행 중인 스레드가 계속 실행될 수 있는 상태라면, 해당 스레드도 실행 큐에 포함되어 있을 것입니다.) 실행 큐가 비어 있다면 `idle_thread`를 반환합니다. */
 static struct thread *
 next_thread_to_run (void) {
