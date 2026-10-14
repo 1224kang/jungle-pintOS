@@ -91,6 +91,7 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int base_priority; //donate 이전 우선순위
 	int64_t wake_tick; //깨어나는 시각
 	struct lock *waiting_lock; //현재 스레드가 획득을 기다리는 락. 기다리는 락이 없으면 NULL.
 
