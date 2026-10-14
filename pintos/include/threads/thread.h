@@ -93,10 +93,14 @@ struct thread {
 	int priority;                       /* Priority. */
 	int base_priority; //donate 이전 우선순위
 	int64_t wake_tick; //깨어나는 시각
-	struct lock *waiting_lock; //현재 스레드가 획득을 기다리는 락. 기다리는 락이 없으면 NULL.
+
+	struct lock *wait_on_lock; //해당 스레드가 획득하기 위해 대기 중인 락
+	struct list donations; //나에게 기부한 스레드들
+
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct list_elem donation_elem; //다른 donation에 걸리기 위한 고리 
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
