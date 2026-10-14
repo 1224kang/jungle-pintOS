@@ -361,8 +361,6 @@ remove_with_lock(struct lock *lock){
 	struct thread *cur=lock->holder;
 
 	if(list_empty(&cur->donations)){
-		//원래 우선순위로 다시 돌아오기
-		// cur->priority=cur->base_priority;
 		return;
 	}
 	else{
@@ -383,6 +381,28 @@ remove_with_lock(struct lock *lock){
 				cur_donation=list_next(cur_donation);
 			}
 		}
+	}
+}
+
+/* 스레드의 우선순위를 base_priority와 남아 있는 기부 중 가장 높은 값으로 재계산한다. */
+void
+refresh_priority(struct thread *thread){
+
+	//donations 리스트가 비어있는지 확인(=지니고 있는 락이 있는지)
+	if(list_empty(&thread->donations)){
+		thread->priority=thread->base_priority;
+	}
+	else{
+		list_sort(&thread->donations,cmp_priority,NULL);
+		struct thread *max_donator=list_entry(list_front(&thread->donations),struct thread,donation_elem);
+		int max_priority;
+		
+		if(thread->base_priority < max_donator->priority){
+			max_priority=max_donator->priority;
+		}else{
+			max_priority=thread->base_priority;
+		}
+		thread->priority=max_priority;
 	}
 }
 
