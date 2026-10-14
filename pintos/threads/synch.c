@@ -379,6 +379,7 @@ remove_with_lock(struct lock *lock){
 				cur_donation=list_next(cur_donation);
 			}
 		}
+		refresh_priority(cur);
 	}
 }
 
@@ -413,6 +414,9 @@ donate_priority(struct lock *lock){ // 단일기부는 완성
 	if(lock->holder != NULL){ //만약 락상태일시
 		if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
 			lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+			thread_current()->wait_on_lock=lock;
+			list_push_front(&lock->holder->donations, &thread_current()->donation_elem);
+			list_sort(&lock->holder->donations,cmp_priority,NULL);
 		}
 	}
 	else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
