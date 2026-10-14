@@ -114,7 +114,7 @@ sema_up (struct semaphore *sema) {
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 
-	sema->value++;
+	sema->value++; 
 
 	thread_preempt_if_needed(); //unblock하고 우선순위가 높은 스레드에게 CPU 넘김
 	intr_set_level (old_level);
@@ -336,6 +336,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 		list_sort(&cond->waiters,cmp_priority_in_semaphore,NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
+
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
