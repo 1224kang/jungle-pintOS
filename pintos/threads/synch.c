@@ -377,13 +377,9 @@ donate_priority(struct lock *lock){
 	if(lock->holder != NULL){
 		struct lock *whit_lock = (lock->holder->waiting_lock);
 // 단일기부
-		if(lock->holder != NULL){ //만약 락상태일시
-			if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
-				lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
-			}
+		if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
+			lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
 		}
-
-		else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
 
 // 연쇄기부
 		while (whit_lock != NULL && whit_lock->holder != NULL)
