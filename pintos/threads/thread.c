@@ -327,6 +327,7 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	thread_current()->base_priority=new_priority;
 
 	//ready list 재점검
 	thread_preempt_if_needed();
