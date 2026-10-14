@@ -354,14 +354,36 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 }
 
 /*
-	기부한 priority 복귀 함수 (단일)
+	lock_release 시, 락의 기부자 제거 
 */
 void
 remove_with_lock(struct lock *lock){
 	struct thread *cur=lock->holder;
 
-	//원래 우선순위로 다시 돌아오기
-	cur->priority=cur->base_priority;
+	if(list_empty(&cur->donations)){
+		//원래 우선순위로 다시 돌아오기
+		// cur->priority=cur->base_priority;
+		return;
+	}
+	else{
+		//donations를 우선순위 높은 순서대로 정렬
+		list_sort(&cur->donations,cmp_priority,NULL);
+		struct list_elem *cur_donation=list_begin(&cur->donations); //donations 리스트를 순회할 포인터 
+
+		while(cur_donation!=list_end(&cur->donations)){
+			//donations에 들어있는게 해당 락의 것이 아닐 수도 있음 -> 내부 도네이션 스레드의 wait_on_lock과 비교
+			//donations 리스트의 맨 앞에 있는 스레드를 가져와서 wait_on_lock과 지금 lock이 같은지 비교 
+			struct thread *donator=list_entry(cur_donation,struct thread,donation_elem); 
+			if(donator->wait_on_lock == lock){ //현재 락과 동일한 기부자 
+				// cur->priority=donator->priority; //우선순위 재계산 함수에서 진행 
+				//지금 release하는 락과 관련된 donatioins 스레드는 모두 삭제해야함 -> 이미 락은 다른 스레드로 넘어갔기 때문 
+				cur_donation=list_remove(cur_donation);
+			}
+			else{
+				cur_donation=list_next(cur_donation);
+			}
+		}
+	}
 }
 
 void
