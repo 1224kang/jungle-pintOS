@@ -92,6 +92,7 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 	int64_t wake_tick; //깨어나는 시각
+	struct lock *waiting_lock; //현재 스레드가 획득을 기다리는 락. 기다리는 락이 없으면 NULL.
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */

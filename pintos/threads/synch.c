@@ -191,7 +191,13 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	thread_current()->waiting_lock = lock;
+
+	donate_priority(lock);
+
 	sema_down (&lock->semaphore);
+
+	thread_current()->waiting_lock = NULL;
 	lock->holder = thread_current ();
 }
 
@@ -352,15 +358,31 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 }
 
 void
-donate_priority(struct lock *lock){ // 단일기부는 완성
+donate_priority(struct lock *lock){ 
 	int now_curr;
 
 	now_curr = thread_current()->priority; // now_curr에 지금 스레드의 값 넣기
+	if(lock->holder != NULL){
+		struct lock *whit_lock = (lock->holder->waiting_lock);
+// 단일기부
+		if(lock->holder != NULL){ //만약 락상태일시
+			if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
+				lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+			}
+		}
 
-	if(lock->holder != NULL){ //만약 락상태일시
-		if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
-			lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+		else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
+
+// 연쇄기부
+		while (whit_lock != NULL && whit_lock->holder != NULL)
+		{
+			if(whit_lock->holder != NULL){ //만약 락상태일시
+				if(whit_lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
+					whit_lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+				}
+				whit_lock = whit_lock->holder->waiting_lock;
+			}
 		}
 	}
-	else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
+	else{;}
 }
