@@ -114,7 +114,7 @@ sema_up (struct semaphore *sema) {
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 
-	sema->value++;
+	sema->value++; 
 
 	thread_preempt_if_needed(); //unblock하고 우선순위가 높은 스레드에게 CPU 넘김
 	intr_set_level (old_level);
@@ -336,6 +336,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 		list_sort(&cond->waiters,cmp_priority_in_semaphore,NULL);
 		sema_up (&list_entry (list_pop_front (&cond->waiters),
 					struct semaphore_elem, elem)->semaphore);
+
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -354,14 +355,55 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 }
 
 /*
-	기부한 priority 복귀 함수 (단일)
+	lock_release 시, 락의 기부자 제거 
 */
 void
 remove_with_lock(struct lock *lock){
 	struct thread *cur=lock->holder;
 
-	//원래 우선순위로 다시 돌아오기
-	cur->priority=cur->base_priority;
+	if(list_empty(&cur->donations)){
+		return;
+	}
+	else{
+		//donations를 우선순위 높은 순서대로 정렬
+		list_sort(&cur->donations,cmp_priority,NULL);
+		struct list_elem *cur_donation=list_begin(&cur->donations); //donations 리스트를 순회할 포인터 
+
+		while(cur_donation!=list_end(&cur->donations)){
+			//donations 리스트의 맨 앞에 있는 스레드를 가져와서 wait_on_lock과 지금 lock이 같은지 비교 
+			struct thread *donator=list_entry(cur_donation,struct thread,donation_elem); 
+			if(donator->wait_on_lock == lock){ //현재 락과 동일한 기부자 
+				//지금 release하는 락과 관련된 donatioins 스레드는 모두 삭제해야함 -> 이미 락은 다른 스레드로 넘어갔기 때문 
+				cur_donation=list_remove(cur_donation);
+			}
+			else{
+				cur_donation=list_next(cur_donation);
+			}
+		}
+		refresh_priority(cur);
+	}
+}
+
+/* 스레드의 우선순위를 base_priority와 남아 있는 기부 중 가장 높은 값으로 재계산한다. */
+void
+refresh_priority(struct thread *thread){
+
+	//donations 리스트가 비어있는지 확인(=지니고 있는 락이 있는지)
+	if(list_empty(&thread->donations)){
+		thread->priority=thread->base_priority;
+	}
+	else{
+		list_sort(&thread->donations,cmp_priority,NULL);
+		struct thread *max_donator=list_entry(list_front(&thread->donations),struct thread,donation_elem);
+		int max_priority;
+		
+		if(thread->base_priority < max_donator->priority){
+			max_priority=max_donator->priority;
+		}else{
+			max_priority=thread->base_priority;
+		}
+		thread->priority=max_priority;
+	}
 }
 
 void
@@ -373,6 +415,9 @@ donate_priority(struct lock *lock){ // 단일기부는 완성
 	if(lock->holder != NULL){ //만약 락상태일시
 		if(lock->holder->priority < now_curr){ //락상태인 스레드가 지금 스레드 보다 작을시
 			lock->holder->priority = now_curr; //락 소유자의 우선순위를 현재 스레드의 우선순위로 높임
+			thread_current()->wait_on_lock=lock;
+			list_push_front(&lock->holder->donations, &thread_current()->donation_elem);
+			list_sort(&lock->holder->donations,cmp_priority,NULL);
 		}
 	}
 	else{;} //위 조건에 해당하지 않을경유 아무것도 하지않음
